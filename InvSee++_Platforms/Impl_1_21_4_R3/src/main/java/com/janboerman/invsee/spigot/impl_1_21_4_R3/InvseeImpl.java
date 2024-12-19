@@ -151,12 +151,12 @@ public class InvseeImpl implements InvseePlatform {
 
     @Override
     public CompletableFuture<SpectateResponse<MainSpectatorInventory>> createOfflineInventory(UUID playerId, String playerName, CreationOptions<PlayerInventorySlot> options) {
-        return createOffline(playerId, playerName, options, this::spectateInventory);
+        return createOffline(playerId, playerName, options, this::spectateInventory, false);
     }
 
     @Override
     public CompletableFuture<SaveResponse> saveInventory(MainSpectatorInventory newInventory) {
-        return save(newInventory, this::spectateInventory, MainSpectatorInventory::setContents);
+        return save(newInventory, this::spectateInventory, MainSpectatorInventory::setContents, false);
     }
 
     @Override
@@ -196,15 +196,15 @@ public class InvseeImpl implements InvseePlatform {
 
     @Override
     public CompletableFuture<SpectateResponse<EnderSpectatorInventory>> createOfflineEnderChest(UUID playerId, String playerName, CreationOptions<EnderChestSlot> options) {
-        return createOffline(playerId, playerName, options, this::spectateEnderChest);
+        return createOffline(playerId, playerName, options, this::spectateEnderChest, true);
     }
 
     @Override
     public CompletableFuture<SaveResponse> saveEnderChest(EnderSpectatorInventory newInventory) {
-        return save(newInventory, this::spectateEnderChest, EnderSpectatorInventory::setContents);
+        return save(newInventory, this::spectateEnderChest, EnderSpectatorInventory::setContents, true);
     }
 
-    private <Slot, IS extends SpectatorInventory<Slot>> CompletableFuture<SpectateResponse<IS>> createOffline(UUID player, String name, CreationOptions<Slot> options, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, IS> invCreator) {
+    private <Slot, IS extends SpectatorInventory<Slot>> CompletableFuture<SpectateResponse<IS>> createOffline(UUID player, String name, CreationOptions<Slot> options, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, IS> invCreator, boolean enderChest) {
 
         CraftServer server = (CraftServer) plugin.getServer();
     	DedicatedPlayerList playerList = server.getHandle();
@@ -236,12 +236,16 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
-            MainManageData.loadInventory(player, craftHumanEntity.getInventory(), craftHumanEntity.getEnderChest());
+            if (!enderChest) {
+                MainManageData.loadInventory(player, craftHumanEntity.getInventory());
+            } else {
+                MainManageData.loadEnderChest(player, craftHumanEntity.getEnderChest());
+            }
             return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
     	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
     }
 
-    private <Slot, SI extends SpectatorInventory<Slot>> CompletableFuture<SaveResponse> save(SI newInventory, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, SI> currentInvProvider, BiConsumer<SI, SI> transfer) {
+    private <Slot, SI extends SpectatorInventory<Slot>> CompletableFuture<SaveResponse> save(SI newInventory, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, SI> currentInvProvider, BiConsumer<SI, SI> transfer, boolean enderChest) {
         CraftServer server = (CraftServer) plugin.getServer();
         SpectatorInventorySaveEvent event = EventHelper.callSpectatorInventorySaveEvent(server, newInventory);
         if (event.isCancelled()) return CompletableFuture.completedFuture(SaveResponse.notSaved(newInventory));
@@ -275,7 +279,11 @@ public class InvseeImpl implements InvseePlatform {
             transfer.accept(currentInv, newInventory);
 
             fakeCraftPlayer.saveData();
-            MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory(), fakeCraftPlayer.getEnderChest());
+            if (!enderChest) {
+                MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory());
+            } else {
+                MainManageData.saveEnderChest(playerId, fakeCraftPlayer.getEnderChest());
+            }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
     }
