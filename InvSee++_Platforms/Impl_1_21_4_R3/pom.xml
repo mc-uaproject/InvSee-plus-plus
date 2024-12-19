@@ -127,6 +127,12 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>hd.sphinx</groupId>
+            <artifactId>MySQL-Sync</artifactId>
+            <version>1.4.13</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 </project>

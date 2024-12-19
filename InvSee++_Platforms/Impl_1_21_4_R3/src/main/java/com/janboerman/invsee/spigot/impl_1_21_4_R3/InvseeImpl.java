@@ -26,14 +26,12 @@ import com.janboerman.invsee.spigot.api.target.Target;
 import com.janboerman.invsee.spigot.api.template.EnderChestSlot;
 import com.janboerman.invsee.spigot.api.template.Mirror;
 import com.janboerman.invsee.spigot.api.template.PlayerInventorySlot;
-import com.janboerman.invsee.spigot.impl_1_21_4_R3.FakeCraftHumanEntity;
-import com.janboerman.invsee.spigot.impl_1_21_4_R3.MainNmsContainer;
-import com.janboerman.invsee.spigot.impl_1_21_4_R3.UUIDSearchSaveFilesStrategy;
 import com.janboerman.invsee.spigot.internal.EventHelper;
 import com.janboerman.invsee.spigot.internal.InvseePlatform;
 import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
 import com.mojang.authlib.GameProfile;
+import hd.sphinx.sync.MainManageData;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -238,6 +236,7 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
+            MainManageData.loadInventory(player, craftHumanEntity.getInventory(), craftHumanEntity.getEnderChest());
             return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
     	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
     }
@@ -276,6 +275,7 @@ public class InvseeImpl implements InvseePlatform {
             transfer.accept(currentInv, newInventory);
 
             fakeCraftPlayer.saveData();
+            MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory(), fakeCraftPlayer.getEnderChest());
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
     }
