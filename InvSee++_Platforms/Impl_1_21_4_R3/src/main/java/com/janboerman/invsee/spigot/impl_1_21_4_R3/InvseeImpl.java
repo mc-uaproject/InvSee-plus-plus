@@ -250,6 +250,7 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
+            MainManageData.generatePlayer(player, craftHumanEntity.getName());
             if (!enderChest) {
                 MainManageData.loadInventory(player, craftHumanEntity.getInventory());
             } else {
