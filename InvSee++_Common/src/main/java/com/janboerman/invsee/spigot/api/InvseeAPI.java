@@ -550,10 +550,10 @@ public class InvseeAPI {
                 return CompletableFuture.completedFuture(SpectateResponse.fail(maybeReason.get()));
             } else {
                 //try cache
-                MainSpectatorInventory alreadyOpen = openSpectatorsCache.getMainSpectatorInventory(playerId);
-                if (alreadyOpen != null) {
-                    return CompletableFuture.completedFuture(SpectateResponse.succeed(alreadyOpen));
-                }
+//                MainSpectatorInventory alreadyOpen = openSpectatorsCache.getMainSpectatorInventory(playerId);
+//                if (alreadyOpen != null) {
+//                    return CompletableFuture.completedFuture(SpectateResponse.succeed(alreadyOpen));
+//                }
 
                 //not in cache: create offline inventory
                 return platform.createOfflineInventory(playerId, playerName, options);
