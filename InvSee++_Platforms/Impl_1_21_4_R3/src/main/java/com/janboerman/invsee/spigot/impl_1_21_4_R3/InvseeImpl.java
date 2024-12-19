@@ -1,5 +1,6 @@
 package com.janboerman.invsee.spigot.impl_1_21_4_R3;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -30,13 +31,11 @@ import com.janboerman.invsee.spigot.internal.EventHelper;
 import com.janboerman.invsee.spigot.internal.InvseePlatform;
 import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
+import com.janboerman.invsee.utils.PlayerListFetcher;
 import com.mojang.authlib.GameProfile;
 import hd.sphinx.sync.MainManageData;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.Registry;
+import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_21_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftHumanEntity;
@@ -62,6 +61,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.PlayerDataStorage;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class InvseeImpl implements InvseePlatform {
 
@@ -83,9 +83,22 @@ public class InvseeImpl implements InvseePlatform {
         lookup.nameResolveStrategies.add(2, new NameSearchSaveFilesStrategy(plugin, scheduler));
     }
 
+    private void warnPlayerOnDifferentServer(Player spectator, String playerName) {
+        if (Bukkit.getPlayer(playerName) == null) {
+            new PlayerListFetcher((JavaPlugin) plugin, spectator).getPlayerList().thenApply(players -> {
+                if (Arrays.asList(players).contains(playerName)) {
+                    spectator.sendMessage(ChatColor.RED + "Гравець онлайн, але на іншому сервері. Внесені зміни не збережуться.");
+                    spectator.playSound(spectator.getLocation(), Sound.ENTITY_ZOMBIE_DEATH, 1.0f, 1.0f);
+                }
+                return null;
+            });
+        }
+    }
+
     @Override
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
+        warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -162,6 +175,7 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
+        warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
