@@ -95,10 +95,16 @@ public class InvseeImpl implements InvseePlatform {
         }
     }
 
+    private boolean checkSyncEnabled() {
+        return plugin.getServer().getPluginManager().isPluginEnabled("MySQL-Sync");
+    }
+
     @Override
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
+        if (checkSyncEnabled()) {
+            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
+        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -175,7 +181,9 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
+        if (checkSyncEnabled()) {
+            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
+        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -250,11 +258,13 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
-            MainManageData.generatePlayer(player, craftHumanEntity.getName());
-            if (!enderChest) {
-                MainManageData.loadInventory(player, craftHumanEntity.getInventory());
-            } else {
-                MainManageData.loadEnderChest(player, craftHumanEntity.getEnderChest());
+            if (checkSyncEnabled()) {
+                MainManageData.generatePlayer(player, craftHumanEntity.getName());
+                if (!enderChest) {
+                    MainManageData.loadInventory(player, craftHumanEntity.getInventory());
+                } else {
+                    MainManageData.loadEnderChest(player, craftHumanEntity.getEnderChest());
+                }
             }
             return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
     	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
@@ -294,10 +304,13 @@ public class InvseeImpl implements InvseePlatform {
             transfer.accept(currentInv, newInventory);
 
             fakeCraftPlayer.saveData();
-            if (!enderChest) {
-                MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory());
-            } else {
-                MainManageData.saveEnderChest(playerId, fakeCraftPlayer.getEnderChest());
+
+            if (checkSyncEnabled()) {
+                if (!enderChest) {
+                    MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory());
+                } else {
+                    MainManageData.saveEnderChest(playerId, fakeCraftPlayer.getEnderChest());
+                }
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
