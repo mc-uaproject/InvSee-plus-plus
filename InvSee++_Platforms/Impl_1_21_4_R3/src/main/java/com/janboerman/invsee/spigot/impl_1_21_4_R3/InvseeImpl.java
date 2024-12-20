@@ -87,7 +87,7 @@ public class InvseeImpl implements InvseePlatform {
         if (Bukkit.getPlayer(playerName) == null) {
             new PlayerListFetcher((JavaPlugin) plugin, spectator).getPlayerList().thenApply(players -> {
                 if (Arrays.asList(players).contains(playerName)) {
-                    spectator.sendMessage(ChatColor.RED + "Гравець онлайн, але на іншому сервері. Внесені зміни не збережуться.");
+                    spectator.sendMessage(ChatColor.RED + plugin.getConfig().getString("player-on-different-server-warning"));
                     spectator.playSound(spectator.getLocation(), Sound.ENTITY_ZOMBIE_DEATH, 1.0f, 1.0f);
                 }
                 return null;
