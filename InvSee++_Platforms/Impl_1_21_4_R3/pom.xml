@@ -128,9 +128,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>hd.sphinx</groupId>
-            <artifactId>MySQL-Sync</artifactId>
-            <version>1.4.13</version>
+            <groupId>net.william278.husksync</groupId>
+            <artifactId>husksync-bukkit</artifactId>
+            <version>3.7.2-df660e8+1.21.4</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

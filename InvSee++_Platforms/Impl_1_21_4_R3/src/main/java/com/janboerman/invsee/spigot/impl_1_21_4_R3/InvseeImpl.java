@@ -33,13 +33,16 @@ import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
 import com.janboerman.invsee.utils.PlayerListFetcher;
 import com.mojang.authlib.GameProfile;
-import hd.sphinx.sync.MainManageData;
+import net.william278.husksync.api.BukkitHuskSyncAPI;
 
+import net.william278.husksync.data.BukkitData;
+import net.william278.husksync.user.User;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_21_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftHumanEntity;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftInventoryPlayer;
 import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftItemStack;
 import org.bukkit.craftbukkit.v1_21_R3.util.CraftChatMessage;
 import org.bukkit.entity.HumanEntity;
@@ -95,14 +98,17 @@ public class InvseeImpl implements InvseePlatform {
         }
     }
 
-    private boolean checkSyncEnabled() {
-        return plugin.getServer().getPluginManager().isPluginEnabled("MySQL-Sync");
+    private BukkitHuskSyncAPI getSyncAPI() {
+        if (plugin.getServer().getPluginManager().isPluginEnabled("HuskSync")) {
+            return BukkitHuskSyncAPI.getInstance();
+        }
+        return null;
     }
 
     @Override
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (checkSyncEnabled()) {
+        if (getSyncAPI() != null) {
             warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         }
         var title = options.getTitle().titleFor(target);
@@ -181,7 +187,7 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (checkSyncEnabled()) {
+        if (getSyncAPI() != null) {
             warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         }
         var title = options.getTitle().titleFor(target);
@@ -258,13 +264,33 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
-            if (checkSyncEnabled()) {
-                MainManageData.generatePlayer(player, craftHumanEntity.getName());
-                if (!enderChest) {
-                    MainManageData.loadInventory(player, craftHumanEntity.getInventory());
-                } else {
-                    MainManageData.loadEnderChest(player, craftHumanEntity.getEnderChest());
-                }
+            if (getSyncAPI() != null) {
+                getSyncAPI().getUser(player).thenApply(userOptional -> {
+                    userOptional.ifPresent(
+                            user -> getSyncAPI().getCurrentData(user).thenApply(dataOptional -> {
+                                dataOptional.ifPresent(data -> {
+                                    Optional itemsOptional;
+                                    org.bukkit.inventory.Inventory inventory;
+                                    if (!enderChest) {
+                                        itemsOptional = data.getInventory();
+                                        inventory = craftHumanEntity.getInventory();
+                                    } else {
+                                        itemsOptional = data.getEnderChest();
+                                        inventory = craftHumanEntity.getEnderChest();
+                                    }
+                                    itemsOptional.ifPresent(items -> {
+                                        Inventory realInventory = ((CraftInventoryPlayer) inventory).getInventory();
+                                        org.bukkit.inventory.ItemStack[] realItems = ((BukkitData.Items) items).getContents();
+                                        for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
+                                            realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
+                                        }
+                                    });
+                                });
+                                return null;
+                            })
+                    );
+                    return null;
+                });
             }
             return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
     	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
@@ -305,12 +331,21 @@ public class InvseeImpl implements InvseePlatform {
 
             fakeCraftPlayer.saveData();
 
-            if (checkSyncEnabled()) {
-                if (!enderChest) {
-                    MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory());
-                } else {
-                    MainManageData.saveEnderChest(playerId, fakeCraftPlayer.getEnderChest());
-                }
+            if (getSyncAPI() != null) {
+                User user = new User(playerId, fakeCraftPlayer.getName());
+                getSyncAPI().getPlugin().getDatabase().ensureUser(user);
+                getSyncAPI().editCurrentData(user, data -> {
+                    Optional inventoryDataOptional;
+                    org.bukkit.inventory.Inventory inventory;
+                    if (!enderChest) {
+                        inventoryDataOptional = data.getInventory();
+                        inventory = fakeCraftPlayer.getInventory();
+                    } else {
+                        inventoryDataOptional = data.getEnderChest();
+                        inventory = fakeCraftPlayer.getEnderChest();
+                    }
+                    inventoryDataOptional.ifPresent(inventoryData -> ((BukkitData.Items) inventoryData).setContents(inventory.getContents()));
+                });
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
