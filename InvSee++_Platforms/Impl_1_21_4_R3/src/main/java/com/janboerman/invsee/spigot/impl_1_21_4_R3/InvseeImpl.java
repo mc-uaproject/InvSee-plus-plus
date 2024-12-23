@@ -109,6 +109,9 @@ public class InvseeImpl implements InvseePlatform {
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
         if (getSyncAPI() != null) {
+            if (Bukkit.getPlayer(inv.getSpectatedPlayerId()) == null) {
+                spectator.sendMessage(plugin.getConfig().getString("loading"));
+            }
             warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         }
         var title = options.getTitle().titleFor(target);
@@ -188,6 +191,9 @@ public class InvseeImpl implements InvseePlatform {
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
         if (getSyncAPI() != null) {
+            if (Bukkit.getPlayer(inv.getSpectatedPlayerId()) == null) {
+                spectator.sendMessage(plugin.getConfig().getString("loading"));
+            }
             warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
         }
         var title = options.getTitle().titleFor(target);
@@ -249,12 +255,15 @@ public class InvseeImpl implements InvseePlatform {
     			yaw,
     			gameProfile);
     	
-    	return CompletableFuture.supplyAsync(() -> {
+    	CompletableFuture<SpectateResponse<IS>> future = new CompletableFuture<>();
+
+        CompletableFuture.supplyAsync(() -> {
     		Optional<CompoundTag> playerCompound = worldNBTStorage.load(fakeEntityHuman);
             if (playerCompound.isEmpty()) {
                 // player file does not exist
                 if (!options.isUnknownPlayerSupported()) {
-                    return SpectateResponse.fail(NotCreatedReason.unknownTarget(Target.byGameProfile(player, name)));
+                    future.complete(SpectateResponse.fail(NotCreatedReason.unknownTarget(Target.byGameProfile(player, name))));
+                    return null;
                 } //else: unknown/new players are supported!
                 // if we get here, then we create a spectator inventory for the non-existent player anyway.
             } else {
@@ -285,15 +294,24 @@ public class InvseeImpl implements InvseePlatform {
                                             realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
                                         }
                                     });
+                                    CompletableFuture.supplyAsync(
+                                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                                    );
+
                                 });
                                 return null;
                             })
                     );
                     return null;
                 });
+                return null;
             }
-            return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
-    	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
+            future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options))));
+            return null;
+        }, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
+
+        return future;
     }
 
     private <Slot, SI extends SpectatorInventory<Slot>> CompletableFuture<SaveResponse> save(SI newInventory, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, SI> currentInvProvider, BiConsumer<SI, SI> transfer, boolean enderChest) {

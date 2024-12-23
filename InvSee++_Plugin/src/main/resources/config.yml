@@ -9,6 +9,7 @@ enable-offline-player-support: true
 enable-unknown-player-support: true
 
 player-on-different-server-warning: "The player is on different server. Changes will not be saved!"
+loading: "Loading inventory..."
 
 # Default titles for spectator inventories.
 titles:
