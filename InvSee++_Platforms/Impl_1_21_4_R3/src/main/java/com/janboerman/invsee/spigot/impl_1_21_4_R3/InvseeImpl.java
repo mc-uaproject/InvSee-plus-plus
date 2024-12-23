@@ -347,7 +347,6 @@ public class InvseeImpl implements InvseePlatform {
 
             if (getSyncAPI() != null) {
                 User user = new User(playerId, fakeCraftPlayer.getName());
-                getSyncAPI().getPlugin().getDatabase().ensureUser(user);
                 if (!enderChest) {
                     getSyncAPI().editCurrentInventory(user, inventoryData -> inventoryData.setContents(fakeCraftPlayer.getInventory().getContents()));
                 } else {
