@@ -293,9 +293,21 @@ public class InvseeImpl implements InvseePlatform {
                                     );
 
                                 });
+                                if (dataOptional.isEmpty()) {
+                                    CompletableFuture.supplyAsync(
+                                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                                    );
+                                }
                                 return null;
                             })
                     );
+                    if (userOptional.isEmpty()) {
+                        CompletableFuture.supplyAsync(
+                                () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                                runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                        );
+                    }
                     return null;
                 });
                 return null;
