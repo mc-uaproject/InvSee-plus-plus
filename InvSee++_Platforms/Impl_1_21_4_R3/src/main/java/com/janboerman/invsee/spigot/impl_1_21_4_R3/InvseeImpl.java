@@ -33,6 +33,7 @@ import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
 import com.janboerman.invsee.utils.PlayerListFetcher;
 import com.mojang.authlib.GameProfile;
+import net.minecraft.world.Container;
 import net.william278.husksync.api.BukkitHuskSyncAPI;
 
 import net.william278.husksync.data.BukkitData;
@@ -42,7 +43,7 @@ import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_21_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftHumanEntity;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftInventoryPlayer;
+import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftInventory;
 import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftItemStack;
 import org.bukkit.craftbukkit.v1_21_R3.util.CraftChatMessage;
 import org.bukkit.entity.HumanEntity;
@@ -280,7 +281,7 @@ public class InvseeImpl implements InvseePlatform {
                                         inventory = craftHumanEntity.getEnderChest();
                                     }
                                     itemsOptional.ifPresent(items -> {
-                                        Inventory realInventory = ((CraftInventoryPlayer) inventory).getInventory();
+                                        Container realInventory = ((CraftInventory) inventory).getInventory();
                                         org.bukkit.inventory.ItemStack[] realItems = ((BukkitData.Items) items).getContents();
                                         for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
                                             realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
