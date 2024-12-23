@@ -108,12 +108,6 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (getSyncAPI() != null) {
-            if (Bukkit.getPlayer(inv.getSpectatedPlayerId()) == null) {
-                spectator.sendMessage(plugin.getConfig().getString("loading"));
-            }
-            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
-        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -190,12 +184,6 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (getSyncAPI() != null) {
-            if (Bukkit.getPlayer(inv.getSpectatedPlayerId()) == null) {
-                spectator.sendMessage(plugin.getConfig().getString("loading"));
-            }
-            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
-        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -274,6 +262,10 @@ public class InvseeImpl implements InvseePlatform {
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
             if (getSyncAPI() != null) {
+                if (options.getSpectator() != null) {
+                    options.getSpectator().sendMessage(plugin.getConfig().getString("loading"));
+                    warnPlayerOnDifferentServer(options.getSpectator(), craftHumanEntity.getName());
+                }
                 getSyncAPI().getUser(player).thenApply(userOptional -> {
                     userOptional.ifPresent(
                             user -> getSyncAPI().getCurrentData(user).thenApply(dataOptional -> {

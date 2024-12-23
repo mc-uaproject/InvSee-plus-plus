@@ -342,7 +342,7 @@ public class InvseeAPI {
      * @return an {@link OpenResponse} which, if successful, gives access to an {@link MainSpectatorInventoryView} which represents the open window
      */
     public final OpenResponse<MainSpectatorInventoryView> spectateInventory(Player spectator, HumanEntity target, CreationOptions<PlayerInventorySlot> options) {
-        SpectateResponse<MainSpectatorInventory> response = mainSpectatorInventory(target, options);
+        SpectateResponse<MainSpectatorInventory> response = mainSpectatorInventory(target, options.withSpectator(spectator));
         if (response.isSuccess()) {
             return platform.openMainSpectatorInventory(spectator, response.getInventory(), options);
         } else {
@@ -595,7 +595,7 @@ public class InvseeAPI {
      * @return an {@link OpenResponse} which, if successful, gives access to an {@link EnderSpectatorInventoryView} which represents the open window
      */
     public final OpenResponse<EnderSpectatorInventoryView> spectateEnderChest(Player spectator, HumanEntity target, CreationOptions<EnderChestSlot> options) {
-        SpectateResponse<EnderSpectatorInventory> response = enderSpectatorInventory(target, options);
+        SpectateResponse<EnderSpectatorInventory> response = enderSpectatorInventory(target, options.withSpectator(spectator));
         if (response.isSuccess()) {
             return platform.openEnderSpectatorInventory(spectator, response.getInventory(), options);
         } else {
@@ -825,6 +825,7 @@ public class InvseeAPI {
     // ================================== Open Main/Ender Inventory ==================================
 
     private final CompletableFuture<OpenResponse<MainSpectatorInventoryView>> spectateInventory(Player spectator, CompletableFuture<SpectateResponse<MainSpectatorInventory>> future, CreationOptions<PlayerInventorySlot> options) {
+        options.withSpectator(spectator);
         final CompletableFuture<OpenResponse<MainSpectatorInventoryView>> result = new CompletableFuture<>();
         future.whenComplete((SpectateResponse<MainSpectatorInventory> response, Throwable throwable) -> {
             if (throwable == null) {
@@ -846,6 +847,7 @@ public class InvseeAPI {
     }
 
     private final CompletableFuture<OpenResponse<EnderSpectatorInventoryView>> spectateEnderChest(Player spectator, CompletableFuture<SpectateResponse<EnderSpectatorInventory>> future, CreationOptions<EnderChestSlot> options) {
+        options.withSpectator(spectator);
         final CompletableFuture<OpenResponse<EnderSpectatorInventoryView>> result = new CompletableFuture<>();
         future.whenComplete((SpectateResponse<EnderSpectatorInventory> response, Throwable throwable) -> {
             if (throwable == null) {
