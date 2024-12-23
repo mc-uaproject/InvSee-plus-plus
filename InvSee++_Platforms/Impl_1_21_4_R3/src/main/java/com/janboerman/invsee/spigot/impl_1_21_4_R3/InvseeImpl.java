@@ -267,38 +267,28 @@ public class InvseeImpl implements InvseePlatform {
                     options.getSpectator().sendMessage(plugin.getConfig().getString("loading"));
                     warnPlayerOnDifferentServer(options.getSpectator(), craftHumanEntity.getName());
                 }
-                getSyncAPI().getUser(player).thenApply(userOptional -> {
-                    if (userOptional.isPresent()) {
-                        User user = userOptional.get();
-                        CompletableFuture<Optional<org.bukkit.inventory.ItemStack[]>> itemsFuture;
-                        org.bukkit.inventory.Inventory inventory;
-                        if (!enderChest) {
-                            itemsFuture = getSyncAPI().getCurrentInventoryContents(user);
-                            inventory = craftHumanEntity.getInventory();
-                        } else {
-                            itemsFuture = getSyncAPI().getCurrentEnderChestContents(user);
-                            inventory = craftHumanEntity.getEnderChest();
+                User user = new User(player, craftHumanEntity.getName());
+                CompletableFuture<Optional<org.bukkit.inventory.ItemStack[]>> itemsFuture;
+                org.bukkit.inventory.Inventory inventory;
+                if (!enderChest) {
+                    itemsFuture = getSyncAPI().getCurrentInventoryContents(user);
+                    inventory = craftHumanEntity.getInventory();
+                } else {
+                    itemsFuture = getSyncAPI().getCurrentEnderChestContents(user);
+                    inventory = craftHumanEntity.getEnderChest();
+                }
+                itemsFuture.thenApply(itemsOptional -> {
+                    if (itemsOptional.isPresent()) {
+                        Container realInventory = ((CraftInventory) inventory).getInventory();
+                        var realItems = itemsOptional.get();
+                        for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
+                            realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
                         }
-                        itemsFuture.thenApply(itemsOptional -> {
-                            if (itemsOptional.isPresent()) {
-                                Container realInventory = ((CraftInventory) inventory).getInventory();
-                                var realItems = itemsOptional.get();
-                                for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
-                                    realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
-                                }
-                            }
-                            CompletableFuture.supplyAsync(
-                                    () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
-                                    runnable -> scheduler.executeSyncPlayer(player, runnable, null)
-                            );
-                            return null;
-                        });
-                    } else {
-                        CompletableFuture.supplyAsync(
-                                () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
-                                runnable -> scheduler.executeSyncPlayer(player, runnable, null)
-                        );
                     }
+                    CompletableFuture.supplyAsync(
+                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                    );
                     return null;
                 });
                 return null;
