@@ -357,18 +357,11 @@ public class InvseeImpl implements InvseePlatform {
             if (getSyncAPI() != null) {
                 User user = new User(playerId, fakeCraftPlayer.getName());
                 getSyncAPI().getPlugin().getDatabase().ensureUser(user);
-                getSyncAPI().editCurrentData(user, data -> {
-                    Optional inventoryDataOptional;
-                    org.bukkit.inventory.Inventory inventory;
-                    if (!enderChest) {
-                        inventoryDataOptional = data.getInventory();
-                        inventory = fakeCraftPlayer.getInventory();
-                    } else {
-                        inventoryDataOptional = data.getEnderChest();
-                        inventory = fakeCraftPlayer.getEnderChest();
-                    }
-                    inventoryDataOptional.ifPresent(inventoryData -> ((BukkitData.Items) inventoryData).setContents(inventory.getContents()));
-                });
+                if (!enderChest) {
+                    getSyncAPI().editCurrentInventory(user, inventoryData -> inventoryData.setContents(fakeCraftPlayer.getInventory().getContents()));
+                } else {
+                    getSyncAPI().editCurrentEnderChest(user, enderChestData -> enderChestData.setContents(fakeCraftPlayer.getEnderChest().getContents()));
+                }
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
