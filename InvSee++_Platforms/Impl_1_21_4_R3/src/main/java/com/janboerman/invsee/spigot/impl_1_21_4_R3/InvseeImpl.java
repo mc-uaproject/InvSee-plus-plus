@@ -268,41 +268,32 @@ public class InvseeImpl implements InvseePlatform {
                     warnPlayerOnDifferentServer(options.getSpectator(), craftHumanEntity.getName());
                 }
                 getSyncAPI().getUser(player).thenApply(userOptional -> {
-                    userOptional.ifPresent(
-                            user -> getSyncAPI().getCurrentData(user).thenApply(dataOptional -> {
-                                dataOptional.ifPresent(data -> {
-                                    Optional itemsOptional;
-                                    org.bukkit.inventory.Inventory inventory;
-                                    if (!enderChest) {
-                                        itemsOptional = data.getInventory();
-                                        inventory = craftHumanEntity.getInventory();
-                                    } else {
-                                        itemsOptional = data.getEnderChest();
-                                        inventory = craftHumanEntity.getEnderChest();
-                                    }
-                                    itemsOptional.ifPresent(items -> {
-                                        Container realInventory = ((CraftInventory) inventory).getInventory();
-                                        org.bukkit.inventory.ItemStack[] realItems = ((BukkitData.Items) items).getContents();
-                                        for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
-                                            realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
-                                        }
-                                    });
-                                    CompletableFuture.supplyAsync(
-                                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
-                                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
-                                    );
-
-                                });
-                                if (dataOptional.isEmpty()) {
-                                    CompletableFuture.supplyAsync(
-                                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
-                                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
-                                    );
+                    if (userOptional.isPresent()) {
+                        User user = userOptional.get();
+                        CompletableFuture<Optional<org.bukkit.inventory.ItemStack[]>> itemsFuture;
+                        org.bukkit.inventory.Inventory inventory;
+                        if (!enderChest) {
+                            itemsFuture = getSyncAPI().getCurrentInventoryContents(user);
+                            inventory = craftHumanEntity.getInventory();
+                        } else {
+                            itemsFuture = getSyncAPI().getCurrentEnderChestContents(user);
+                            inventory = craftHumanEntity.getEnderChest();
+                        }
+                        itemsFuture.thenApply(itemsOptional -> {
+                            if (itemsOptional.isPresent()) {
+                                Container realInventory = ((CraftInventory) inventory).getInventory();
+                                var realItems = itemsOptional.get();
+                                for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
+                                    realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
                                 }
-                                return null;
-                            })
-                    );
-                    if (userOptional.isEmpty()) {
+                            }
+                            CompletableFuture.supplyAsync(
+                                    () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                                    runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                            );
+                            return null;
+                        });
+                    } else {
                         CompletableFuture.supplyAsync(
                                 () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
                                 runnable -> scheduler.executeSyncPlayer(player, runnable, null)
