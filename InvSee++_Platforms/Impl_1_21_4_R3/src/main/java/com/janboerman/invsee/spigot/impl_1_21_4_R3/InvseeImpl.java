@@ -36,7 +36,9 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.world.Container;
 import net.william278.husksync.api.BukkitHuskSyncAPI;
 
-import net.william278.husksync.data.BukkitData;
+import net.william278.husksync.data.DataSnapshot;
+import net.william278.husksync.user.BukkitUser;
+import net.william278.husksync.user.OnlineUser;
 import net.william278.husksync.user.User;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
@@ -336,12 +338,9 @@ public class InvseeImpl implements InvseePlatform {
             fakeCraftPlayer.saveData();
 
             if (getSyncAPI() != null) {
-                User user = new User(playerId, fakeCraftPlayer.getName());
-                if (!enderChest) {
-                    getSyncAPI().editCurrentInventory(user, inventoryData -> inventoryData.setContents(fakeCraftPlayer.getInventory().getContents()));
-                } else {
-                    getSyncAPI().editCurrentEnderChest(user, enderChestData -> enderChestData.setContents(fakeCraftPlayer.getEnderChest().getContents()));
-                }
+                OnlineUser user = BukkitUser.adapt(fakeCraftPlayer, getSyncAPI().getPlugin());
+                var data = user.createSnapshot(enderChest ? DataSnapshot.SaveCause.ENDERCHEST_COMMAND : DataSnapshot.SaveCause.INVENTORY_COMMAND);
+                getSyncAPI().setCurrentData(user, data);
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
