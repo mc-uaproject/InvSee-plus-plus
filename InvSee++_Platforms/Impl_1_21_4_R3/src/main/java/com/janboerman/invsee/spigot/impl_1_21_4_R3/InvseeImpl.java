@@ -33,19 +33,12 @@ import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
 import com.janboerman.invsee.utils.PlayerListFetcher;
 import com.mojang.authlib.GameProfile;
-import net.minecraft.world.Container;
-import net.william278.husksync.api.BukkitHuskSyncAPI;
 
-import net.william278.husksync.data.DataSnapshot;
-import net.william278.husksync.user.BukkitUser;
-import net.william278.husksync.user.OnlineUser;
-import net.william278.husksync.user.User;
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
 import org.bukkit.craftbukkit.v1_21_R3.CraftWorld;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftHumanEntity;
 import org.bukkit.craftbukkit.v1_21_R3.entity.CraftPlayer;
-import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftInventory;
 import org.bukkit.craftbukkit.v1_21_R3.inventory.CraftItemStack;
 import org.bukkit.craftbukkit.v1_21_R3.util.CraftChatMessage;
 import org.bukkit.entity.HumanEntity;
@@ -101,11 +94,8 @@ public class InvseeImpl implements InvseePlatform {
         }
     }
 
-    private BukkitHuskSyncAPI getSyncAPI() {
-        if (plugin.getServer().getPluginManager().isPluginEnabled("HuskSync")) {
-            return BukkitHuskSyncAPI.getInstance();
-        }
-        return null;
+    private boolean hasHuskSync() {
+        return plugin.getServer().getPluginManager().isPluginEnabled("HuskSync");
     }
 
     @Override
@@ -264,36 +254,15 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
-            if (getSyncAPI() != null) {
+            if (hasHuskSync()) {
                 if (options.getSpectator() != null) {
                     options.getSpectator().sendMessage(plugin.getConfig().getString("loading"));
                     warnPlayerOnDifferentServer(options.getSpectator(), craftHumanEntity.getName());
                 }
-                User user = new User(player, craftHumanEntity.getName());
-                CompletableFuture<Optional<org.bukkit.inventory.ItemStack[]>> itemsFuture;
-                org.bukkit.inventory.Inventory inventory;
-                if (!enderChest) {
-                    itemsFuture = getSyncAPI().getCurrentInventoryContents(user);
-                    inventory = craftHumanEntity.getInventory();
-                } else {
-                    itemsFuture = getSyncAPI().getCurrentEnderChestContents(user);
-                    inventory = craftHumanEntity.getEnderChest();
-                }
-                itemsFuture.thenApply(itemsOptional -> {
-                    if (itemsOptional.isPresent()) {
-                        Container realInventory = ((CraftInventory) inventory).getInventory();
-                        var realItems = itemsOptional.get();
-                        for (int i = 0; i < Math.min(realInventory.getContainerSize(), realItems.length); i++) {
-                            realInventory.setItem(i, CraftItemStack.asNMSCopy(realItems[i]));
-                        }
-                    }
-                    CompletableFuture.supplyAsync(
-                            () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
-                            runnable -> scheduler.executeSyncPlayer(player, runnable, null)
-                    );
-                    return null;
-                });
-                return null;
+                return HuskSyncWrapper.loadPlayerSnapshot(craftHumanEntity, enderChest).thenApply(result -> CompletableFuture.supplyAsync(
+                        () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                        runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                ));
             }
             future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options))));
             return null;
@@ -337,10 +306,8 @@ public class InvseeImpl implements InvseePlatform {
 
             fakeCraftPlayer.saveData();
 
-            if (getSyncAPI() != null) {
-                OnlineUser user = BukkitUser.adapt(fakeCraftPlayer, getSyncAPI().getPlugin());
-                var data = user.createSnapshot(enderChest ? DataSnapshot.SaveCause.ENDERCHEST_COMMAND : DataSnapshot.SaveCause.INVENTORY_COMMAND);
-                getSyncAPI().setCurrentData(user, data);
+            if (hasHuskSync()) {
+                HuskSyncWrapper.savePlayerSnapshot(fakeCraftPlayer, enderChest);
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));
