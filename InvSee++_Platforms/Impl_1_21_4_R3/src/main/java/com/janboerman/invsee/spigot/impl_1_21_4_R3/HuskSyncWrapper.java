@@ -42,6 +42,7 @@ public class HuskSyncWrapper {
 
     public static void savePlayerSnapshot(FakeCraftPlayer player, boolean enderChest) {
         OnlineUser user = BukkitUser.adapt(player, getAPI().getPlugin());
+        getAPI().getPlugin().getDatabase().ensureUser(user);
         var data = user.createSnapshot(enderChest ? DataSnapshot.SaveCause.ENDERCHEST_COMMAND : DataSnapshot.SaveCause.INVENTORY_COMMAND);
         getAPI().setCurrentData(user, data);
     }
