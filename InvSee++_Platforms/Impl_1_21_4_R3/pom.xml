@@ -130,7 +130,7 @@
         <dependency>
             <groupId>net.william278.husksync</groupId>
             <artifactId>husksync-bukkit</artifactId>
-            <version>3.7.2-8fddae7+1.21.4</version>
+            <version>3.7.2-2ed7d00+1.21.4</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
