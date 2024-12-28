@@ -33,7 +33,6 @@ import com.janboerman.invsee.spigot.internal.NamesAndUUIDs;
 import com.janboerman.invsee.spigot.internal.OpenSpectatorsCache;
 import com.janboerman.invsee.utils.PlayerListFetcher;
 import com.mojang.authlib.GameProfile;
-import hd.sphinx.sync.MainManageData;
 
 import org.bukkit.*;
 import org.bukkit.craftbukkit.v1_21_R3.CraftServer;
@@ -95,16 +94,13 @@ public class InvseeImpl implements InvseePlatform {
         }
     }
 
-    private boolean checkSyncEnabled() {
-        return plugin.getServer().getPluginManager().isPluginEnabled("MySQL-Sync");
+    private boolean hasHuskSync() {
+        return plugin.getServer().getPluginManager().isPluginEnabled("HuskSync");
     }
 
     @Override
     public OpenResponse<MainSpectatorInventoryView> openMainSpectatorInventory(Player spectator, MainSpectatorInventory inv, CreationOptions<PlayerInventorySlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (checkSyncEnabled()) {
-            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
-        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -181,9 +177,6 @@ public class InvseeImpl implements InvseePlatform {
     @Override
     public OpenResponse<EnderSpectatorInventoryView> openEnderSpectatorInventory(Player spectator, EnderSpectatorInventory inv, CreationOptions<EnderChestSlot> options) {
         var target = Target.byGameProfile(inv.getSpectatedPlayerId(), inv.getSpectatedPlayerName());
-        if (checkSyncEnabled()) {
-            warnPlayerOnDifferentServer(spectator, inv.getSpectatedPlayerName());
-        }
         var title = options.getTitle().titleFor(target);
 
         CraftPlayer bukkitPlayer = (CraftPlayer) spectator;
@@ -243,12 +236,15 @@ public class InvseeImpl implements InvseePlatform {
     			yaw,
     			gameProfile);
     	
-    	return CompletableFuture.supplyAsync(() -> {
+    	CompletableFuture<SpectateResponse<IS>> future = new CompletableFuture<>();
+
+        CompletableFuture.supplyAsync(() -> {
     		Optional<CompoundTag> playerCompound = worldNBTStorage.load(fakeEntityHuman);
             if (playerCompound.isEmpty()) {
                 // player file does not exist
                 if (!options.isUnknownPlayerSupported()) {
-                    return SpectateResponse.fail(NotCreatedReason.unknownTarget(Target.byGameProfile(player, name)));
+                    future.complete(SpectateResponse.fail(NotCreatedReason.unknownTarget(Target.byGameProfile(player, name))));
+                    return null;
                 } //else: unknown/new players are supported!
                 // if we get here, then we create a spectator inventory for the non-existent player anyway.
             } else {
@@ -258,16 +254,21 @@ public class InvseeImpl implements InvseePlatform {
             }
 
     		CraftHumanEntity craftHumanEntity = new FakeCraftHumanEntity(server, fakeEntityHuman);
-            if (checkSyncEnabled()) {
-                MainManageData.generatePlayer(player, craftHumanEntity.getName());
-                if (!enderChest) {
-                    MainManageData.loadInventory(player, craftHumanEntity.getInventory());
-                } else {
-                    MainManageData.loadEnderChest(player, craftHumanEntity.getEnderChest());
+            if (hasHuskSync()) {
+                if (options.getSpectator() != null) {
+                    options.getSpectator().sendMessage(plugin.getConfig().getString("loading"));
+                    warnPlayerOnDifferentServer(options.getSpectator(), craftHumanEntity.getName());
                 }
+                return HuskSyncWrapper.loadPlayerSnapshot(craftHumanEntity, enderChest).thenApply(result -> CompletableFuture.supplyAsync(
+                        () -> future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)))),
+                        runnable -> scheduler.executeSyncPlayer(player, runnable, null)
+                ));
             }
-            return SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options)));
-    	}, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
+            future.complete(SpectateResponse.succeed(EventHelper.callSpectatorInventoryOfflineCreatedEvent(server, invCreator.apply(craftHumanEntity, options))));
+            return null;
+        }, runnable -> scheduler.executeSyncPlayer(player, runnable, null));
+
+        return future;
     }
 
     private <Slot, SI extends SpectatorInventory<Slot>> CompletableFuture<SaveResponse> save(SI newInventory, BiFunction<? super HumanEntity, ? super CreationOptions<Slot>, SI> currentInvProvider, BiConsumer<SI, SI> transfer, boolean enderChest) {
@@ -305,12 +306,8 @@ public class InvseeImpl implements InvseePlatform {
 
             fakeCraftPlayer.saveData();
 
-            if (checkSyncEnabled()) {
-                if (!enderChest) {
-                    MainManageData.saveInventory(playerId, fakeCraftPlayer.getInventory());
-                } else {
-                    MainManageData.saveEnderChest(playerId, fakeCraftPlayer.getEnderChest());
-                }
+            if (hasHuskSync()) {
+                HuskSyncWrapper.savePlayerSnapshot(fakeCraftPlayer, enderChest);
             }
             return SaveResponse.saved(currentInv);
     	}, runnable -> scheduler.executeSyncPlayer(playerId, runnable, null));

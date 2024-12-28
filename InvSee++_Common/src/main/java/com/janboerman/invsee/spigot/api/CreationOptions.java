@@ -8,6 +8,7 @@ import com.janboerman.invsee.spigot.api.template.Mirror;
 import com.janboerman.invsee.spigot.api.template.PlayerInventorySlot;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -28,6 +29,7 @@ public class CreationOptions<Slot> implements Cloneable {
     private boolean bypassExempt = false;               //should this be a Predicate<Target>? maybe.
     private LogOptions logOptions = new LogOptions();
     private PlaceholderPalette placeholderPalette = PlaceholderPalette.empty();
+    private Player spectator = null;
 
     //TODO should have a builder api, because api consumers can't keep on using legacy constructors.
 
@@ -112,6 +114,13 @@ public class CreationOptions<Slot> implements Cloneable {
     public CreationOptions<Slot> clone() {
         return new CreationOptions<>(getPlugin(), getTitle(), isOfflinePlayerSupported(), getMirror(), isUnknownPlayerSupported(), canBypassExemptedPlayers(), getLogOptions().clone(), getPlaceholderPalette());
     }
+
+    public CreationOptions<Slot> withSpectator(Player spectator) {
+        this.spectator = spectator;
+        return this;
+    }
+
+    public Player getSpectator() { return spectator; }
 
     /**
      * Set the plugin.
