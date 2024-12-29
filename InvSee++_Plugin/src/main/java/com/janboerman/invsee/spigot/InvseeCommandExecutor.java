@@ -66,7 +66,8 @@ public class InvseeCommandExecutor implements CommandExecutor {
                 .withUnknownPlayerSupport(plugin.unknownPlayerSupport())
                 .withBypassExemptedPlayers(player.hasPermission(Exempt.BYPASS_EXEMPT_INVENTORY))
                 .withLogOptions(plugin.getLogOptions())
-                .withPlaceholderPalette(plugin.getPlaceholderPalette());
+                .withPlaceholderPalette(plugin.getPlaceholderPalette())
+                .withSpectator(player);
 
         CompletableFuture<SpectateResponse<MainSpectatorInventory>> pwiFuture = null;
 
